@@ -1,2 +1,5 @@
 venv/
 .vscode/
+*.zip
+disaster-response-pipeline-project/
+*pkl
