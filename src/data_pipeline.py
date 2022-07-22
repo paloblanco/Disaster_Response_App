@@ -2,9 +2,10 @@
 import sys
 from typing import Tuple, List
 
-# data loading
+# data loading and export
 import pandas as pd
 import sqlite3
+import pickle
 
 # ML
 import nltk
@@ -165,7 +166,19 @@ def train(X, Y, model):
 
 
 def export_model(model):
-    # Export model as a pickle file
+    """
+    Export trained model as a pickle file
+
+    INPUTS:
+        model:  GridSearchCV - trained grid search object which has "fit" and "predict" methods
+
+    OUTPUTS;
+        None
+
+    Results in creation of a pickle file for model
+    """
+    with open('msg_model_pkl', 'wb') as files:
+        pickle.dump(model, files)
     pass
 
 
