@@ -104,7 +104,8 @@ def build_model() -> GridSearchCV:
     }
 
     # create gridsearch object and return as final model pipeline
-    model_pipeline = GridSearchCV(pipeline, param_grid=parameters)
+    # cv=2 during prod for speed, default is 5
+    model_pipeline = GridSearchCV(pipeline, param_grid=parameters, cv=2)
 
     return model_pipeline
 

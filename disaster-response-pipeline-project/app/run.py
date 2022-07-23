@@ -1,27 +1,46 @@
 import json
 import plotly
 import pandas as pd
+from typing import List
 
+import nltk
+nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger','stopwords','omw-1.4'])
+from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+import re
 
 from flask import Flask
 from flask import render_template, request, jsonify
 from plotly.graph_objs import Bar
-# from sklearn.externals import joblib
 import joblib
 from sqlalchemy import create_engine
 
 
 app = Flask(__name__)
 
-def tokenize(text):
-    tokens = word_tokenize(text)
-    lemmatizer = WordNetLemmatizer()
+# this is defined globally so it does not need to be compiled repeatedly in a function
+PATTERN_REMOVE_STOPWORDS = re.compile(r'\b(' + r'|'.join(stopwords.words('english')) + r')\b\s*')
 
+def tokenize(text: str) -> List[str]:
+    """
+    Tokenizer for messages. Returns a list of relevant words. 
+    Intended for usage in a sklearn pipeline.
+
+    INPUTS:
+        text: str - string corresponding to a message
+
+    OUTPUTS:
+        clean_tokens: List[str] - list of tokens (relevant words) in supplied text
+    """
+    text = re.sub(r"[^a-zA-Z0-9]", " ", text.lower())
+    text = PATTERN_REMOVE_STOPWORDS.sub('',text)
+    lemmatizer = WordNetLemmatizer()
+    
     clean_tokens = []
-    for tok in tokens:
-        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
+    
+    for tok in word_tokenize(text):
+        clean_tok = lemmatizer.lemmatize(tok)#.lower().strip()
         clean_tokens.append(clean_tok)
 
     return clean_tokens
