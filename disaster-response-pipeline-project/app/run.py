@@ -1,4 +1,5 @@
 import json
+from numpy import vectorize
 import plotly
 import pandas as pd
 from typing import List
@@ -12,10 +13,9 @@ import re
 
 from flask import Flask
 from flask import render_template, request, jsonify
-from plotly.graph_objs import Bar
+from plotly.graph_objs import Bar, Heatmap, Scatter
 import joblib
 from sqlalchemy import create_engine
-
 
 app = Flask(__name__)
 
@@ -48,10 +48,10 @@ def tokenize(text: str) -> List[str]:
 # load data
 engine = create_engine('sqlite:///../data/DisasterResponse.db')
 df = pd.read_sql_table('messages_classified', engine)
+df_svd = pd.read_sql_table('messages_svd', engine)
 
 # load model
 model = joblib.load("../models/classifier.pkl")
-
 
 # index webpage displays cool visuals and receives user input text for model
 @app.route('/')
@@ -60,11 +60,17 @@ def index():
     
     # extract data needed for visuals
     # TODO: Below is an example - modify to extract data for your own visuals
-    genre_counts = df.groupby('genre').count()['message'] / len(df)
-    genre_names = list(genre_counts.index)
 
     category_counts = df.iloc[:,4:].sum() / len(df)
     category_names = list(df.columns)[4:]
+
+    category_corr = df.corr()
+
+    # cv = CountVectorizer(tokenizer=tokenize)
+    # tf = TfidfTransformer()
+    # X = tf.fit_transform(cv.fit_transform(df.message))
+    # pca=TruncatedSVD(n_components=2)
+    # xplot = pca.fit_transform(X)
     
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
@@ -86,7 +92,46 @@ def index():
                     'title': "Category"
                 }
             }
-        }
+        },
+        {
+            'data': [
+                Heatmap(
+                    z=category_corr,
+                    y=category_names,
+                    x=category_names
+                )
+            ],
+
+            'layout': {
+                'title': 'Correlation of Message Categories',
+                'yaxis': {
+                    'title': "Category"
+                },
+                'xaxis': {
+                    'title': "Category"
+                }
+            }
+        },
+        {
+            'data': [
+                Scatter(
+                    x=df_svd['x'],
+                    y=df_svd['y'],
+                    mode='markers',
+                    text=df_svd['message'] + r"<br>" + df_svd["labels"] 
+                )
+            ],
+
+            'layout': {
+                'title': 'First two principal components of comments ',
+                'yaxis': {
+                    'title': "Component 1"
+                },
+                'xaxis': {
+                    'title': "Component 2"
+                }
+            }
+        },
     ]
     
     # encode plotly graphs in JSON

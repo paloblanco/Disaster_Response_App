@@ -6,6 +6,16 @@ from typing import Tuple, List
 import pandas as pd
 import sqlite3
 
+import nltk
+nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger','stopwords','omw-1.4'])
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
+import re
+
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.decomposition import TruncatedSVD
+
 
 def load_data(messages_filepath: str, categories_filepath: str) -> pd.DataFrame:
     """
@@ -51,14 +61,69 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     df=df.drop_duplicates()
     return df
 
+# this is defined globally so it does not need to be compiled repeatedly in a function
+PATTERN_REMOVE_STOPWORDS = re.compile(r'\b(' + r'|'.join(stopwords.words('english')) + r')\b\s*')
 
-def save_data(df: pd.DataFrame, database_filename: str) -> None:
+def tokenize(text: str) -> List[str]:
+    """
+    Tokenizer for messages. Returns a list of relevant words. 
+    Intended for usage in a sklearn pipeline.
+
+    INPUTS:
+        text: str - string corresponding to a message
+
+    OUTPUTS:
+        clean_tokens: List[str] - list of tokens (relevant words) in supplied text
+    """
+    text = re.sub(r"[^a-zA-Z0-9]", " ", text.lower())
+    text = PATTERN_REMOVE_STOPWORDS.sub('',text)
+    lemmatizer = WordNetLemmatizer()
+    
+    clean_tokens = []
+    
+    for tok in word_tokenize(text):
+        clean_tok = lemmatizer.lemmatize(tok)#.lower().strip()
+        clean_tokens.append(clean_tok)
+
+    return clean_tokens
+
+def execute_SVD_get_labels(df):
+    """
+    This will execute SVD on the comments themselves so we can plot them in two dimensions
+
+    INPUTS:
+        df: pd.DataFrame - cleaned dataframe containing messages and categories
+
+    OUTPUTS:
+        df_svd: pd.DataFrame - dataframe containing messages, xy coordinates, and a string with all categories
+    """
+    cv = CountVectorizer(tokenizer=tokenize)
+    tf = TfidfTransformer()
+    X = tf.fit_transform(cv.fit_transform(df.message))
+    svd=TruncatedSVD(n_components=2)
+    xplot = svd.fit_transform(X)
+
+    cat_labels = list(df.columns)[4:]
+    labels = list(df.apply(lambda x: ', '.join([l for l in cat_labels if x[l]==1]), axis=1))
+    
+    df_svd = pd.DataFrame()
+    df_svd['x'] = xplot[:,0]
+    df_svd['y'] = xplot[:,1]
+    df_svd['message'] = list(df.message)
+    df_svd['labels'] = labels
+
+    return df_svd
+
+
+
+def save_data(df: pd.DataFrame, database_filename: str, table_name: str = "messages_classified") -> None:
     """
     Puts messages data into database.
 
     INPUTS:
         df: pd.DataFrame - dataframe containing messages and categories
         database_filename: str - name of database
+        table_name: str - table that will hold data
 
     OUTPUTS:
         None
@@ -68,7 +133,7 @@ def save_data(df: pd.DataFrame, database_filename: str) -> None:
         This file is overwritten if it exists
     """
     cnxn = sqlite3.connect(database_filename)
-    df.to_sql("messages_classified",cnxn,index=False, if_exists='replace')
+    df.to_sql(table_name,cnxn,index=False, if_exists='replace')
     cnxn.close()
 
 
@@ -92,9 +157,12 @@ def main():
 
         print('Cleaning data...')
         df = clean_data(df)
+        print('Performing SVD Decomp...')
+        df_svd = execute_SVD_get_labels(df)
         
         print('Saving data...\n    DATABASE: {}'.format(database_filepath))
-        save_data(df, database_filepath)
+        save_data(df, database_filepath, table_name="messages_classified")
+        save_data(df_svd, database_filepath, table_name="messages_svd")
         
         print('Cleaned data saved to database!')
     

@@ -93,14 +93,15 @@ def build_model() -> GridSearchCV:
     """
     # text processing and model pipeline
     pipeline = Pipeline([
-        ('vect', CountVectorizer(tokenizer=tokenize)),
+        ('vect', CountVectorizer()),
         ('tfidf', TfidfTransformer()),
-        ('clf', MultiOutputClassifier(RandomForestClassifier(n_estimators=10)))
+        ('clf', MultiOutputClassifier(RandomForestClassifier()))
     ], verbose=True)
 
     # define parameters for GridSearchCV
     parameters = {
-        'clf__estimator__n_estimators': [5, 10] # 40],
+        'clf__estimator__n_estimators': [5, 10], # 40],
+        'vect__tokenizer': [None, tokenize] # 40],
     }
 
     # create gridsearch object and return as final model pipeline
